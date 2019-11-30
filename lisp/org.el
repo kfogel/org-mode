@@ -7743,11 +7743,46 @@ If yes, remember the marker and the distance to BEG."
     (move-marker (car x) (+ beg (cdr x))))
   (setq org-markers-to-move nil))
 
-(defun org-narrow-to-subtree ()
-  "Narrow buffer to the current subtree."
-  (interactive)
+(defun org-narrow-to-subtree (&optional steps)
+  "Narrow buffer to current subtree or to one specified by prefix arg STEPS.
+
+Interactively, use the prefix argument in one of two ways to
+narrow to a specific subtree: either give one or more C-u's to
+specify a subtree that many levels upward from the current
+subtree (that is, go up as many levels as the number of C-u's
+given -- each C-u counts for one level), or give a strictly
+numeric argument to narrow to the subtree that is that many
+levels downward from the current top level (level 1) subtree.
+
+From Lisp, if you want the C-u (upward) behavior, pass STEPS as a
+list with the desired number as its sole element.  Otherwise,
+pass STEPS as a number to get the other (downward) behavior.
+
+If STEPS would specify a subtree higher than the current level 1
+subtree, then just narrow to that level 1 subtree (in other
+words, you can use \"a lot of\" C-u's to narrow quickly to the
+current top subtree).  If STEPS would specify a subtree deeper
+than the current subtree, just narrow to the current subtree."
+  (interactive "P")
   (save-excursion
     (save-match-data
+      (widen)
+      (if steps
+	  (if (listp steps)
+	      (progn
+		(setq steps (car steps))
+		(when (< steps 0)
+		  (error "Argument cannot be negative"))
+		(setq steps (round (log steps 4))))
+	    (when (< steps 0) ; awkward duplication, but hard to avoid
+	      (error "Argument cannot be negative"))
+	    (let ((cur-level (org-outline-level)))
+	      (setq steps (max (- cur-level steps) 0))))
+	(setq steps 0))
+      (while (> steps 0)
+	(if (org-up-heading-safe)
+	    (setq steps (1- steps))
+	  (setq steps 0)))
       (org-with-limited-levels
        (narrow-to-region
 	(progn (org-back-to-heading t) (point))
